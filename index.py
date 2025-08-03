@@ -19,11 +19,15 @@ def is_key_valid(api_key):
 
 def fetch_data(region, uid):
     url = f"https://razor-info.vercel.app/player-info?uid={uid}&region={region}"
-    response = requests.get(url)
-    if response.status_code == 200:
-        return response.json()
-    else:
-        print(f"Error fetching data: {response.status_code}, {response.text}")
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            print(f"[Error] Razor Info API: {response.status_code} - {response.text}")
+            return None
+    except Exception as e:
+        print(f"[Exception] Failed to fetch data: {e}")
         return None
 
 def overlay_images(base_image, item_ids, avatar_id=None, weapon_skin_id=None):
@@ -50,9 +54,13 @@ def overlay_images(base_image, item_ids, avatar_id=None, weapon_skin_id=None):
             center_y = (base.height - avatar.height) // 2
             base.paste(avatar, (center_x, center_y), avatar)
 
-            # استخدام الخط المحلي
-            font_path = os.path.join(os.path.dirname(__file__), "arial.ttf")
-            font = ImageFont.truetype(font_path, 24)
+            # محاولة تحميل arial.ttf من المجلد، وإن لم يكن موجودًا نستخدم الخط الافتراضي
+            try:
+                font_path = os.path.join(os.path.dirname(__file__), "arial.ttf")
+                font = ImageFont.truetype(font_path, 24)
+            except:
+                font = ImageFont.load_default()
+
             text = "BNGX"
             text_width, text_height = draw.textsize(text, font=font)
             text_x = center_x + (130 - text_width) // 2
@@ -60,7 +68,7 @@ def overlay_images(base_image, item_ids, avatar_id=None, weapon_skin_id=None):
             draw.text((text_x, text_y), text, fill="white", font=font)
 
         except Exception as e:
-            print(f"Error loading avatar {avatar_id}: {e}")
+            print(f"[Error] Loading avatar {avatar_id}: {e}")
 
     for idx, item_id in enumerate(item_ids[:6]):
         item_url = f"https://pika-ffitmes-api.vercel.app/?item_id={item_id}&watermark=TaitanApi&key=PikaApis"
@@ -69,7 +77,7 @@ def overlay_images(base_image, item_ids, avatar_id=None, weapon_skin_id=None):
             item = item.resize(sizes[idx], Image.LANCZOS)
             base.paste(item, positions[idx], item)
         except Exception as e:
-            print(f"Error loading item {item_id}: {e}")
+            print(f"[Error] Loading item {item_id}: {e}")
             continue
 
     if weapon_skin_id:
@@ -79,7 +87,7 @@ def overlay_images(base_image, item_ids, avatar_id=None, weapon_skin_id=None):
             weapon = weapon.resize((130, 130), Image.LANCZOS)
             base.paste(weapon, positions[6], weapon)
         except Exception as e:
-            print(f"Error loading weapon skin {weapon_skin_id}: {e}")
+            print(f"[Error] Loading weapon skin {weapon_skin_id}: {e}")
 
     return base
 
@@ -113,13 +121,15 @@ def generate_image():
     if not item_ids or not avatar_id:
         return jsonify({"error": "Missing equipped skills or avatar data"}), 500
 
-    image = overlay_images(BASE_IMAGE_URL, item_ids, avatar_id, weapon_skin_id)
+    try:
+        image = overlay_images(BASE_IMAGE_URL, item_ids, avatar_id, weapon_skin_id)
+        img_io = BytesIO()
+        image.save(img_io, 'PNG')
+        img_io.seek(0)
+        return send_file(img_io, mimetype='image/png')
+    except Exception as e:
+        print(f"[Exception] Error generating image: {e}")
+        return jsonify({"error": f"Image generation failed: {str(e)}"}), 500
 
-    img_io = BytesIO()
-    image.save(img_io, 'PNG')
-    img_io.seek(0)
-    return send_file(img_io, mimetype='image/png')
-
-
-# Vercel expects this
+# Vercel handler
 handler = app

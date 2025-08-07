@@ -15,11 +15,13 @@ API_KEYS = {
     "busy": False
 }
 
+# ==== الأدوات ====
+
 def is_key_valid(api_key):
     return API_KEYS.get(api_key, False)
 
 def fetch_data(region, uid):
-    url = f"https://razor-info.vercel.app/player-info?uid={uid}&region=me"
+    url = f"https://razor-info.vercel.app/player-info?uid={uid}&region={region}"
     try:
         res = requests.get(url, timeout=5)
         res.raise_for_status()
@@ -48,24 +50,28 @@ def overlay_images(base_image_url, item_ids, avatar_id=None, weapon_skin_id=None
     draw = ImageDraw.Draw(base)
 
     positions = [
-        (520, 550),
-        (330, 646),
-        (320, 140),
-        (519, 210),
-        (590, 390),
-        (100, 510),
-        (150, 550),
-        (70, 380)
+        (520, 550),  # 0
+        (330, 646),  # 1
+        (320, 140),  # 2
+        (519, 210),  # 3
+        (590, 390),  # 4
+        (100, 510),  # 5
+        (150, 550),  # 6 -> weapon
+        (70, 380)    # 7 -> pet
     ]
     sizes = [(130, 130)] * len(positions)
 
+    # كل العناصر لتحميلها متزامناً
     items_to_fetch = [(i, item_ids[i]) for i in range(min(6, len(item_ids)))]
+
+    # إضافة السلاح والحيوان في المواقع المحددة
     if weapon_skin_id:
         items_to_fetch.append((6, weapon_skin_id))
     if pet_skin_id:
         items_to_fetch.append((7, pet_skin_id))
 
-    with ThreadPoolExecutor(max_workers=6) as executor:
+    # تحميل الصور في الخلفية
+    with ThreadPoolExecutor(max_workers=8) as executor:
         future_to_pos = {
             executor.submit(fetch_image_by_id, item_id): pos
             for pos, item_id in items_to_fetch
@@ -78,6 +84,7 @@ def overlay_images(base_image_url, item_ids, avatar_id=None, weapon_skin_id=None
                 img = img.resize(sizes[pos], Image.LANCZOS)
                 base.paste(img, positions[pos], img)
 
+    # الأفاتار
     if avatar_id:
         try:
             avatar_url = f"https://pika-ffitmes-api.vercel.app/?item_id={avatar_id}&watermark=TaitanApi&key=PikaApis"
@@ -100,6 +107,8 @@ def overlay_images(base_image_url, item_ids, avatar_id=None, weapon_skin_id=None
             print(f"Error loading avatar {avatar_id}: {e}")
 
     return base
+
+# ==== المسار الرئيسي ====
 
 @app.route('/api', methods=['GET'])
 def api():
@@ -137,6 +146,7 @@ def api():
     img_io.seek(0)
     return send_file(img_io, mimetype='image/png')
 
+# ==== تشغيل السيرفر ====
+
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=5000, debug=True)

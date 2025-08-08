@@ -55,7 +55,7 @@ def overlay_images(base_image_url, item_ids, avatar_id=None, weapon_skin_id=None
         (320, 140),  # 2
         (519, 210),  # 3
         (590, 390),  # 4
-        (100, 510),  # 5
+        (145, 210),  # 5
         (150, 550),  # 6 -> weapon
         (70, 380)    # 7 -> pet
     ]

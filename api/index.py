@@ -54,7 +54,7 @@ def overlay_images(base_image_url, item_ids, avatar_id=None, weapon_skin_id=None
         (320, 140),  # 2
         (519, 210),  # 3
         (590, 390),  # 4
-        (145, 210),  # 5 -> items
+        (145, 210),  # 5 -> outfit items
         (150, 550),  # 6 -> weapon
         (70, 380)    # 7 -> pet
     ]
@@ -121,7 +121,7 @@ def api():
         return jsonify({"error": "Failed to fetch valid profile data"}), 500
 
     profile = data.get("AccountProfileInfo", {})
-    item_ids = profile.get("EquippedSkills", [])
+    item_ids = profile.get("EquippedOutfit", [])  # استخدام الـ Outfit لعرض الصور
 
     account_info = data.get("AccountInfo", {})
     avatar_id = account_info.get("AccountAvatarId")
@@ -134,7 +134,7 @@ def api():
     pet_skin_id = data.get("petInfo", {}).get("skinId")
 
     if not item_ids or not avatar_id:
-        return jsonify({"error": "Missing equipped skills or avatar data"}), 500
+        return jsonify({"error": "Missing equipped outfit or avatar data"}), 500
 
     image = overlay_images(BASE_IMAGE_URL, item_ids, avatar_id, weapon_skin_id, pet_skin_id)
 
@@ -142,3 +142,6 @@ def api():
     image.save(img_io, 'PNG')
     img_io.seek(0)
     return send_file(img_io, mimetype='image/png')
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)

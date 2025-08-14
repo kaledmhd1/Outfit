@@ -2,7 +2,6 @@ from flask import Flask, request, jsonify, send_file
 import requests
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
-import os
 from concurrent.futures import ThreadPoolExecutor
 
 app = Flask(__name__)
@@ -20,8 +19,8 @@ API_KEYS = {
 def is_key_valid(api_key):
     return API_KEYS.get(api_key, False)
 
-def fetch_data(region, uid):
-    url = f"https://razor-info.vercel.app/player-info?uid={uid}&region={region}"
+def fetch_data(uid):
+    url = f"https://infor-bngx-ff.vercel.app/get?uid={uid}"
     try:
         res = requests.get(url, timeout=5)
         res.raise_for_status()
@@ -55,22 +54,19 @@ def overlay_images(base_image_url, item_ids, avatar_id=None, weapon_skin_id=None
         (320, 140),  # 2
         (519, 210),  # 3
         (590, 390),  # 4
-        (145, 210),  # 5
+        (145, 210),  # 5 -> items
         (150, 550),  # 6 -> weapon
         (70, 380)    # 7 -> pet
     ]
     sizes = [(130, 130)] * len(positions)
 
-    # كل العناصر لتحميلها متزامناً
     items_to_fetch = [(i, item_ids[i]) for i in range(min(6, len(item_ids)))]
 
-    # إضافة السلاح والحيوان في المواقع المحددة
     if weapon_skin_id:
         items_to_fetch.append((6, weapon_skin_id))
     if pet_skin_id:
         items_to_fetch.append((7, pet_skin_id))
 
-    # تحميل الصور في الخلفية
     with ThreadPoolExecutor(max_workers=8) as executor:
         future_to_pos = {
             executor.submit(fetch_image_by_id, item_id): pos
@@ -84,7 +80,6 @@ def overlay_images(base_image_url, item_ids, avatar_id=None, weapon_skin_id=None
                 img = img.resize(sizes[pos], Image.LANCZOS)
                 base.paste(img, positions[pos], img)
 
-    # الأفاتار
     if avatar_id:
         try:
             avatar_url = f"https://pika-ffitmes-api.vercel.app/?item_id={avatar_id}&watermark=TaitanApi&key=PikaApis"
@@ -112,27 +107,29 @@ def overlay_images(base_image_url, item_ids, avatar_id=None, weapon_skin_id=None
 
 @app.route('/api', methods=['GET'])
 def api():
-    region = request.args.get('region')
     uid = request.args.get('uid')
     api_key = request.args.get('key')
 
-    if not region or not uid or not api_key:
-        return jsonify({"error": "Missing region, uid, or key parameter"}), 400
+    if not uid or not api_key:
+        return jsonify({"error": "Missing uid or key parameter"}), 400
 
     if not is_key_valid(api_key):
         return jsonify({"error": "Invalid or inactive API key"}), 403
 
-    data = fetch_data(region, uid)
-    if not data or "profileInfo" not in data:
+    data = fetch_data(uid)
+    if not data or "AccountProfileInfo" not in data:
         return jsonify({"error": "Failed to fetch valid profile data"}), 500
 
-    profile = data.get("profileInfo", {})
-    item_ids = profile.get("equipedSkills", [])
-    avatar_id = profile.get("avatarId")
+    profile = data.get("AccountProfileInfo", {})
+    item_ids = profile.get("EquippedSkills", [])
 
-    weapon_skin_raw = data.get("basicInfo", {}).get("weaponSkinShows", [])
+    account_info = data.get("AccountInfo", {})
+    avatar_id = account_info.get("AccountAvatarId")
+
+    weapon_skin_raw = account_info.get("weaponSkinShows", [])
     weapon_skin_id = weapon_skin_raw[0] if isinstance(weapon_skin_raw, list) and weapon_skin_raw else (
-        weapon_skin_raw if isinstance(weapon_skin_raw, int) else None)
+        weapon_skin_raw if isinstance(weapon_skin_raw, int) else None
+    )
 
     pet_skin_id = data.get("petInfo", {}).get("skinId")
 
